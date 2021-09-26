@@ -3,7 +3,7 @@ import os
 import subprocess
 import time
 
-from ossapi import OssapiV2, RankingType, UserStatistics, Score, Cursor
+from ossapi import OssapiV2, RankingType, UserStatistics, Score, Cursor, Mod
 
 from osu_collections import Collection, CollectionDB
 from osu_db import parse_osu_db
@@ -11,6 +11,8 @@ from osu_db import parse_osu_db
 if __name__ == "__main__":
     api = OssapiV2(os.getenv('CLIENT_ID'), os.getenv('CLIENT_SECRET'))
     osu_folder = r'E:\osu!'
+
+    running_mode = 'collection'
 
     osu_db_path = os.path.join(osu_folder, 'osu!.db')
     osu_collections_path = os.path.join(osu_folder, 'collection.db')
@@ -28,20 +30,25 @@ if __name__ == "__main__":
         for page_num in range(top_player_page_start, top_player_page_end):
             cursor = Cursor(page=page_num)
             rankings = api.ranking("osu", RankingType.PERFORMANCE, cursor=cursor)
-            time.sleep(0.5)
+            time.sleep(0.2)
             print(f'Looking at page {page_num} of top rankings.')
             for rank in rankings.ranking:
                 rank: UserStatistics
                 user_id = rank.user.id
                 username = rank.user.username
                 best_scores = api.user_scores(user_id, "best", mode='osu', limit=50)
-                time.sleep(0.5)
+                time.sleep(0.2)
                 best_scores.extend(api.user_scores(user_id, "best", mode='osu', limit=50, offset=50))
-                time.sleep(0.4)
+                time.sleep(0.2)
 
                 print(f'Looking at top scores of {username} - {len(best_scores)} scores collected.')
                 for score in best_scores:
                     score: Score
+                    if Mod('NC') in score.mods:
+                        score.mods = score.mods - Mod(21101) + Mod('DT')
+                    else:
+                        score.mods -= Mod(21101)
+
                     score_modifier = str(score.mods)
                     beatmap_id = score.beatmap.id
                     beatmap_hash = score.beatmap.checksum
@@ -53,11 +60,13 @@ if __name__ == "__main__":
                                                                                beatmap_hashes=[beatmap_hash])
 
                     if not (beatmap_id in beatmap_ids) and not (beatmap_id in already_downloaded):
-                        subprocess.Popen([osu_exe_path, f'osu://b/{beatmap_id}'],
-                                         close_fds=True, creationflags=0x00000008)
+                        if running_mode == 'download':
+                            subprocess.Popen([osu_exe_path, f'osu://b/{beatmap_id}'],
+                                             close_fds=True, creationflags=0x00000008)
                         already_downloaded.add(beatmap_id)
     except KeyboardInterrupt:
         pass
     finally:
-        for modifier, collection in beatmaps_dict.items():
-            collections_db.add_collection(collection)
+        if running_mode == 'collection':
+            for modifier, collection in beatmaps_dict.items():
+                collections_db.add_collection(collection)
