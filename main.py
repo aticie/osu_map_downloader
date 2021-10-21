@@ -23,6 +23,12 @@ class MapDownloader:
         self.collections_db = CollectionDB(self.osu_collections_path)
         print(f'You have {len(self.collections_db.collections)} collections.')
 
+        self.num_maps_before_ask = input(f'Number of maps to download before prompt (Default: 10):')
+        if self.num_maps_before_ask == '':
+            self.num_maps_before_ask = 10
+        else:
+            self.num_maps_before_ask = int(self.num_maps_before_ask)
+
         self.today = datetime.datetime.now().strftime('%Y-%m-%d')
         self.downloaded_maps = set()
         self.beatmaps_dict = {}
@@ -46,7 +52,7 @@ class MapDownloader:
                              close_fds=True, creationflags=0x00000008)
             bmap_no += 1
             if not self.continuous_download:
-                if bmap_no % 10 == 0:
+                if bmap_no % self.num_maps_before_ask == 0:
                     print(f'Skipped {len(skipped_beatmaps)} beatmaps. (Already downloaded)')
                     continue_dl = input(f'{bmap_no} maps queued for download. Continue? [y/n/a]')
                     if continue_dl.lower() == 'n':
